@@ -154,9 +154,40 @@ type FilteredSaleLineRow = {
   discount: unknown
   line_cost: unknown
   units: unknown
+  sale_date?: unknown
 }
 
-function aggregateFilteredSaleLines(rows: FilteredSaleLineRow[]): {
+/** Full-bill SUM(line_total) so filtered lines can take a share of net_total (bill discount). */
+async function loadBillLineSums(
+  db: Knex,
+  saleIds: string[]
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>()
+  if (!saleIds.length) return map
+  const rows = (await db('sale_lines')
+    .whereIn('sale_id', saleIds)
+    .groupBy('sale_id')
+    .select('sale_id')
+    .sum({ total: 'line_total' })) as Array<{ sale_id: string; total?: unknown }>
+  for (const row of rows) {
+    map.set(String(row.sale_id), round2(Number(row.total || 0)))
+  }
+  return map
+}
+
+function lineShareOfBill(lineTotal: number, billLineSum: number): number {
+  if (!(billLineSum > 0)) return 0
+  return lineTotal / billLineSum
+}
+
+/**
+ * Allocate filtered lines against bill net_total (same basis as unfiltered SUM(net_total)).
+ * share = line_total / SUM(all lines on sale); revenue = share × net_total.
+ */
+function aggregateFilteredSaleLines(
+  rows: FilteredSaleLineRow[],
+  billLineSumBySale: Map<string, number>
+): {
   salesRevenue: number
   collectedAmount: number
   dueAmount: number
@@ -174,17 +205,19 @@ function aggregateFilteredSaleLines(rows: FilteredSaleLineRow[]): {
   const saleIds = new Set<string>()
 
   for (const row of rows) {
-    const lineTotal = Number(row.line_total)
-    const netTotal = Number(row.net_total)
-    const ratio = netTotal > 0 ? lineTotal / netTotal : 0
+    const saleId = String(row.sale_id)
+    const lineTotal = Number(row.line_total || 0)
+    const netTotal = Number(row.net_total || 0)
+    const billSum = billLineSumBySale.get(saleId) ?? 0
+    const share = lineShareOfBill(lineTotal, billSum)
 
-    salesRevenue = round2(salesRevenue + lineTotal)
-    collectedAmount = round2(collectedAmount + Number(row.paid_amount) * ratio)
-    dueAmount = round2(dueAmount + Number(row.due_amount) * ratio)
-    discountTotal = round2(discountTotal + Number(row.discount) * ratio)
-    cogs = round2(cogs + Number(row.line_cost))
-    unitsSold += Number(row.units)
-    saleIds.add(row.sale_id as string)
+    salesRevenue = round2(salesRevenue + share * netTotal)
+    collectedAmount = round2(collectedAmount + Number(row.paid_amount || 0) * share)
+    dueAmount = round2(dueAmount + Number(row.due_amount || 0) * share)
+    discountTotal = round2(discountTotal + Number(row.discount || 0) * share)
+    cogs = round2(cogs + Number(row.line_cost || 0))
+    unitsSold += Number(row.units || 0)
+    saleIds.add(saleId)
   }
 
   return {
@@ -221,6 +254,9 @@ class DashboardService {
     const withProducts = includeProductScope(filters)
     const withParts = includePartScope(filters)
 
+    let filteredRowsCache: FilteredSaleLineRow[] | null = null
+    let billLineSumBySale = new Map<string, number>()
+
     if (hasItemFilters(filters)) {
       const filteredRows: FilteredSaleLineRow[] = []
 
@@ -237,6 +273,7 @@ class DashboardService {
               's.paid_amount',
               's.due_amount',
               's.discount',
+              's.sale_date',
               db.raw('pi.purchase_price as line_cost'),
               db.raw('1 as units')
             ),
@@ -264,6 +301,7 @@ class DashboardService {
               's.paid_amount',
               's.due_amount',
               's.discount',
+              's.sale_date',
               db.raw(`${PART_COGS_SQL} as line_cost`),
               'sl.quantity as units'
             ),
@@ -275,7 +313,13 @@ class DashboardService {
         filteredRows.push(...partRows)
       }
 
-      const aggregated = aggregateFilteredSaleLines(filteredRows)
+      billLineSumBySale = await loadBillLineSums(
+        db,
+        [...new Set(filteredRows.map((r) => String(r.sale_id)))]
+      )
+      filteredRowsCache = filteredRows
+
+      const aggregated = aggregateFilteredSaleLines(filteredRows, billLineSumBySale)
       salesRevenue = aggregated.salesRevenue
       collectedAmount = aggregated.collectedAmount
       dueAmount = aggregated.dueAmount
@@ -475,32 +519,20 @@ class DashboardService {
     const salesByDay = new Map<string, number>()
     const purchasesByDay = new Map<string, number>()
 
-    if (hasItemFilters(filters)) {
-      if (withProducts) {
-        const dailyProductSales = await applySaleLineItemFilters(
-          baseSaleLinesQuery(db, companyId, branchId, fromDate, toDate)
-            .join('product_items as pi', 'pi.id', 'sl.product_item_id')
-            .whereNotNull('sl.product_item_id')
-            .select(db.raw('DATE(s.sale_date) as day'))
-            .sum('sl.line_total as total')
-            .groupByRaw('DATE(s.sale_date)'),
-          filters
+    if (hasItemFilters(filters) && filteredRowsCache) {
+      for (const row of filteredRowsCache) {
+        const saleId = String(row.sale_id)
+        const share = lineShareOfBill(
+          Number(row.line_total || 0),
+          billLineSumBySale.get(saleId) ?? 0
         )
-        mergeDailyTotals(salesByDay, dailyProductSales)
-      }
-
-      if (withParts) {
-        const dailyPartSales = await applyPartSaleLineFilters(
-          baseSaleLinesQuery(db, companyId, branchId, fromDate, toDate)
-            .whereNotNull('sl.part_id')
-            .select(db.raw('DATE(s.sale_date) as day'))
-            .sum('sl.line_total as total')
-            .groupByRaw('DATE(s.sale_date)'),
-          db,
-          companyId,
-          filters
+        const dayRaw = row.sale_date
+        if (!dayRaw) continue
+        const key = new Date(dayRaw as string | Date).toISOString().slice(0, 10)
+        salesByDay.set(
+          key,
+          round2((salesByDay.get(key) || 0) + share * Number(row.net_total || 0))
         )
-        mergeDailyTotals(salesByDay, dailyPartSales)
       }
     } else {
       const dailySales = await db('sales')
