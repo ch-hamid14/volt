@@ -381,6 +381,24 @@ export async function getBootstrapData(
     .whereNull('r.deleted_at')
     .select('ur.*')
 
+  const taxes = (await companyDb.schema.hasTable('taxes'))
+    ? await companyDb('taxes')
+        .where({ company_id: companyId })
+        .whereNull('deleted_at')
+        .select(
+          'id',
+          'company_id',
+          'name',
+          'code',
+          'default_percent',
+          'inclusive_default',
+          'is_system',
+          'sort_order',
+          'created_at',
+          'updated_at'
+        )
+    : []
+
   return {
     company: {
       ...(company || profile),
@@ -396,7 +414,8 @@ export async function getBootstrapData(
     permissions,
     rolePermissions,
     users,
-    userRoles
+    userRoles,
+    taxes
   }
 }
 

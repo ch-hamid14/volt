@@ -23,8 +23,8 @@
     "admin:build": "npm run build --prefix admin-web"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.1",
-    "@electron-toolkit/utils": "^3.0.0",
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
     "@madix/database": "file:../packages",
     "@madix/sync": "file:../sync-system",
     "bcryptjs": "^2.4.3",
@@ -47,9 +47,9 @@
     "antd": "^5.19.3",
     "autoprefixer": "^10.4.19",
     "dayjs": "^1.11.13",
-    "electron": "^31.0.2",
+    "electron": "^43.2.0",
     "electron-builder": "^24.13.3",
-    "electron-vite": "^2.3.0",
+    "electron-vite": "^5.0.0",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.34.3",
     "postcss": "^8.4.39",
