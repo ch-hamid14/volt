@@ -22,7 +22,7 @@ import { FaCartShopping, FaSackDollar, FaWarehouse } from 'react-icons/fa6'
 import { GiReceiveMoney } from 'react-icons/gi'
 import { IoStatsChart, IoTrendingDown, IoTrendingUp } from 'react-icons/io5'
 import { MdOutlineInventory2 } from 'react-icons/md'
-import { dashboardAPI, partAPI, productAPI, supplierAPI } from '@/renderer/services'
+import { dashboardAPI, partAPI, productAPI, supplierAPI, branchAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatCompact, formatCompactAxis, formatCompactRs, formatRs, PageHeader } from '../shared/page-ui'
 import './dashboard.scss'
@@ -147,12 +147,14 @@ function PlRow({
 }
 
 export const Dashboard = () => {
-  const { companyId, branchId, user, branchName } = useSession()
+  const { companyId, branchId, user, branchName, canSwitchBranch } = useSession()
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<DashboardData | null>(null)
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [products, setProducts] = useState<any[]>([])
   const [parts, setParts] = useState<any[]>([])
+  const [branches, setBranches] = useState<{ id: string; name: string }[]>([])
+  const [filterBranchId, setFilterBranchId] = useState<string>()
   const [supplierId, setSupplierId] = useState<string>()
   const [productId, setProductId] = useState<string>()
   const [partId, setPartId] = useState<string>()
@@ -166,6 +168,10 @@ export const Dashboard = () => {
   const from = dateRange[0].format('YYYY-MM-DD')
   const to = dateRange[1].format('YYYY-MM-DD')
   const isAllTime = dateRange[0].isSame(ALL_TIME_START, 'day')
+  const analyticsBranchId = canSwitchBranch ? filterBranchId : branchId
+  const selectedBranchName = analyticsBranchId
+    ? branches.find((b) => b.id === analyticsBranchId)?.name || branchName
+    : undefined
 
   useEffect(() => {
     if (!companyId) return
@@ -175,20 +181,28 @@ export const Dashboard = () => {
   }, [companyId])
 
   useEffect(() => {
-    if (!companyId || !branchId) return
+    if (!companyId || !canSwitchBranch) return
+    branchAPI.list(companyId).then((rows: { id: string; name: string }[]) => {
+      setBranches((rows || []).map((b) => ({ id: b.id, name: b.name })))
+    }).catch(() => setBranches([]))
+  }, [companyId, canSwitchBranch])
+
+  useEffect(() => {
+    if (!companyId) return
+    if (!canSwitchBranch && !branchId) return
 
     const requestId = ++requestIdRef.current
     setLoading(true)
 
     dashboardAPI
-      .analytics(companyId, branchId, { from, to, supplierId, productId, partId })
+      .analytics(companyId, analyticsBranchId, { from, to, supplierId, productId, partId })
       .then((res) => {
         if (requestId === requestIdRef.current) setData(res as DashboardData)
       })
       .finally(() => {
         if (requestId === requestIdRef.current) setLoading(false)
       })
-  }, [companyId, branchId, from, to, supplierId, productId, partId, refreshKey])
+  }, [companyId, analyticsBranchId, canSwitchBranch, branchId, from, to, supplierId, productId, partId, refreshKey])
 
   const supplierOptions = useMemo(
     () => suppliers.map((s) => ({ value: s.id, label: s.name })),
@@ -234,77 +248,94 @@ export const Dashboard = () => {
     <div className="dashboard">
       <PageHeader
         title={`Welcome, ${user?.firstName || 'User'}`}
-        subtitle={branchName ? `${branchName} analytics overview` : 'Branch analytics overview'}
-        extra={
-          <div className="dashboard-toolbar">
-            <div className="dashboard-toolbar-left">
-              <RangePicker
-                value={dateRange}
-                presets={rangePresets}
-                allowClear={false}
-                format={
-                  isAllTime
-                    ? [() => 'All', () => '']
-                    : 'YYYY-MM-DD'
-                }
-                separator={isAllTime ? '' : '-'}
-                onChange={(v) => {
-                  if (v?.[0] && v?.[1]) setDateRange([v[0].startOf('day'), v[1].endOf('day')])
-                }}
-              />
-            </div>
-            <div className="dashboard-toolbar-right">
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="Supplier"
-                style={{ width: 180 }}
-                options={supplierOptions}
-                value={supplierId}
-                onChange={setSupplierId}
-              />
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="Product"
-                style={{ width: 180 }}
-                options={productOptions}
-                value={productId}
-                onChange={setProductId}
-              />
-              <Select
-                allowClear
-                showSearch
-                optionFilterProp="label"
-                placeholder="Part"
-                style={{ width: 180 }}
-                options={partOptions}
-                value={partId}
-                onChange={setPartId}
-              />
-              <Button
-                icon={<ReloadOutlined />}
-                loading={loading}
-                onClick={() => setRefreshKey((k) => k + 1)}
-              >
-                Refresh
-              </Button>
-              <Button
-                onClick={() => {
-                  setSupplierId(undefined)
-                  setProductId(undefined)
-                  setPartId(undefined)
-                  setDateRange([dayjs().startOf('month'), dayjs().endOf('day')])
-                }}
-              >
-                Reset
-              </Button>
-            </div>
-          </div>
+        subtitle={
+          canSwitchBranch
+            ? analyticsBranchId
+              ? `${selectedBranchName || 'Branch'} analytics overview`
+              : 'Company-wide analytics overview'
+            : branchName
+              ? `${branchName} analytics overview`
+              : 'Branch analytics overview'
         }
       />
+
+      <div className="dashboard-toolbar">
+        <RangePicker
+          className="dashboard-toolbar-dates"
+          value={dateRange}
+          presets={rangePresets}
+          allowClear={false}
+          format={isAllTime ? [() => 'All', () => ''] : 'YYYY-MM-DD'}
+          separator={isAllTime ? '' : '-'}
+          onChange={(v) => {
+            if (v?.[0] && v?.[1]) setDateRange([v[0].startOf('day'), v[1].endOf('day')])
+          }}
+        />
+        {canSwitchBranch && (
+          <Select
+            className="dashboard-toolbar-select"
+            showSearch
+            optionFilterProp="label"
+            placeholder="Branch"
+            options={[
+              { value: '', label: 'All' },
+              ...branches.map((b) => ({ value: b.id, label: b.name }))
+            ]}
+            value={filterBranchId || ''}
+            onChange={(v) => setFilterBranchId(v || undefined)}
+          />
+        )}
+        <Select
+          className="dashboard-toolbar-select"
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Supplier"
+          options={supplierOptions}
+          value={supplierId}
+          onChange={setSupplierId}
+        />
+        <Select
+          className="dashboard-toolbar-select"
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Product"
+          options={productOptions}
+          value={productId}
+          onChange={setProductId}
+        />
+        <Select
+          className="dashboard-toolbar-select"
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder="Part"
+          options={partOptions}
+          value={partId}
+          onChange={setPartId}
+        />
+        <div className="dashboard-toolbar-actions">
+          <Button
+            icon={<ReloadOutlined />}
+            loading={loading}
+            onClick={() => setRefreshKey((k) => k + 1)}
+          >
+            Refresh
+          </Button>
+          <Button
+            onClick={() => {
+              setSupplierId(undefined)
+              setProductId(undefined)
+              setPartId(undefined)
+              if (canSwitchBranch) setFilterBranchId(undefined)
+              setDateRange([ALL_TIME_START, dayjs().endOf('day')])
+            }}
+          >
+            Reset
+          </Button>
+        </div>
+      </div>
 
       <div className="dashboard-kpi-grid">
         <KpiCard
@@ -378,7 +409,7 @@ export const Dashboard = () => {
           loading={loading}
           label="Outstanding"
           amount={kpis.outstandingBalance}
-          meta="All customers"
+          meta={analyticsBranchId ? 'This branch' : 'All branches'}
           icon={<FaSackDollar size={18} color="#be123c" />}
           iconBg="#fff1f2"
         />
