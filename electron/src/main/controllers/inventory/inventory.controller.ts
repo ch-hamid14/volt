@@ -1,6 +1,6 @@
 import { IRequest } from '../../../common'
 import { inventoryService } from '../../services'
-import { auditFromRequest } from '../shared/audit'
+import { auditFromMutatingRequest } from '../shared/audit'
 
 class InventoryController {
   async list(_: Electron.IpcMainInvokeEvent, req: IRequest) {
@@ -34,7 +34,7 @@ class InventoryController {
   async transfer(_: Electron.IpcMainInvokeEvent, req: IRequest) {
     return inventoryService.transfer(
       req.body?.companyId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as { fromBranchId: string; toBranchId: string; productItemIds: string[] }
     )
   }
@@ -42,7 +42,7 @@ class InventoryController {
   async adjust(_: Electron.IpcMainInvokeEvent, req: IRequest) {
     return inventoryService.adjust(
       req.body?.companyId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as { branchId: string; productItemIds: string[]; status: string; notes?: string }
     )
   }

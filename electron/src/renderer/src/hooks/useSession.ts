@@ -12,6 +12,9 @@ export function useSession() {
   const branchId = viewingBranchId || assignedBranchId
   const activeBranchName = viewingBranchName || branchName
   const canSwitch = canSwitchBranch(user?.role)
+  const isViewingOtherBranch = Boolean(
+    canSwitch && assignedBranchId && branchId && branchId !== assignedBranchId
+  )
 
   const audit = (): SessionAudit => sessionAudit(user, deviceId, branchId)
 
@@ -23,7 +26,10 @@ export function useSession() {
     companyId,
     branchId,
     assignedBranchId,
+    assignedBranchName: branchName,
     canSwitchBranch: canSwitch,
+    isViewingOtherBranch,
+    canMutate: !isViewingOtherBranch,
     audit
   }
 }

@@ -4,7 +4,7 @@ import type { TableProps } from 'antd'
 import { EditOutlined, EyeOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
-import { App_Routes, Roles } from '@/common'
+import { App_Routes, Roles, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { customerAPI, saleAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatRs, formatAuditUser, PageHeader } from '../shared/page-ui'
@@ -16,8 +16,8 @@ type SaleSortField = 'netTotal' | 'paidAmount' | 'dueAmount'
 
 export const SalesList = () => {
   const navigate = useNavigate()
-  const { companyId, branchId, user } = useSession()
-  const canEditSales = user?.role === Roles.COMPANY_OWNER
+  const { companyId, branchId, user, canMutate } = useSession()
+  const canEditSales = user?.role === Roles.COMPANY_OWNER && canMutate
   const [data, setData] = useState<any[]>([])
   const [customers, setCustomers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -179,7 +179,7 @@ export const SalesList = () => {
                       onClick={() => navigate(App_Routes.SALE_EDIT.replace(':id', r.id))}
                     />
                   ) : (
-                    <Tooltip title="Only company owners can edit sales">
+                    <Tooltip title={!canMutate ? VIEW_ONLY_BRANCH_HINT : 'Only company owners can edit sales'}>
                       <Button type="text" icon={<EditOutlined />} disabled />
                     </Tooltip>
                   )}

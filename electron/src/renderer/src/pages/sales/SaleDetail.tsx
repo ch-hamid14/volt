@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Col, Descriptions, Row, Spin, Statistic, Table, Tag, Typography, message } from 'antd'
 import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { App_Routes, Roles } from '@/common'
+import { App_Routes, Roles, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { saleAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { useSaleInvoicePrint } from '@/renderer/hooks/useSaleInvoicePrint'
@@ -18,9 +18,9 @@ const { Text } = Typography
 export const SaleDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { companyId, branchName, user, audit } = useSession()
-  const canEditSales = user?.role === Roles.COMPANY_OWNER
-  const canEditPayments = user?.role === Roles.COMPANY_OWNER
+  const { companyId, branchName, user, audit, canMutate } = useSession()
+  const canEditSales = user?.role === Roles.COMPANY_OWNER && canMutate
+  const canEditPayments = user?.role === Roles.COMPANY_OWNER && canMutate
   const [editable, setEditable] = useState(false)
   const [editPayment, setEditPayment] = useState<any>(null)
   const {
@@ -109,7 +109,9 @@ export const SaleDetail = () => {
             ) : (
               canEditSales || editable ? (
                 <Text type="secondary">
-                  {!canEditSales
+                  {!canMutate
+                    ? VIEW_ONLY_BRANCH_HINT
+                    : !canEditSales
                     ? 'Only company owners can edit sales'
                     : 'Edit unavailable — one or more sold units are no longer editable'}
                 </Text>

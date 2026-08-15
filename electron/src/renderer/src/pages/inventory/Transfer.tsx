@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Card, Select, Table, Typography, message } from 'antd'
+import { VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { branchAPI, inventoryAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { PageHeader } from '../shared/page-ui'
@@ -7,7 +8,7 @@ import { PageHeader } from '../shared/page-ui'
 const { Text } = Typography
 
 export const Transfer = () => {
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [branches, setBranches] = useState<any[]>([])
   const [items, setItems] = useState<any[]>([])
   const [selected, setSelected] = useState<string[]>([])
@@ -28,6 +29,10 @@ export const Transfer = () => {
   )
 
   const handleTransfer = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     if (!toBranchId) {
       message.error('Select destination branch')
       return
@@ -69,7 +74,7 @@ export const Transfer = () => {
               value={toBranchId}
               onChange={setToBranchId}
             />
-            <Button type="primary" loading={loading} disabled={!selected.length} onClick={handleTransfer}>
+            <Button type="primary" loading={loading} disabled={!canMutate || !selected.length} onClick={handleTransfer}>
               Transfer {selected.length ? `(${selected.length})` : ''}
             </Button>
           </div>

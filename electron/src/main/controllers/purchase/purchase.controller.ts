@@ -1,6 +1,6 @@
 import { IRequest } from '../../../common'
 import { purchaseService } from '../../services'
-import { auditFromListQuery, auditFromRequest } from '../shared/audit'
+import { auditFromListQuery, auditFromMutatingRequest } from '../shared/audit'
 
 class PurchaseController {
   async list(_: Electron.IpcMainInvokeEvent, req: IRequest) {
@@ -23,7 +23,7 @@ class PurchaseController {
     return purchaseService.create(
       req.body?.companyId as string,
       req.body?.branchId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as any
     )
   }
@@ -37,7 +37,7 @@ class PurchaseController {
       req.params?.id as string,
       req.body?.companyId as string,
       req.body?.branchId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as any
     )
   }
@@ -53,7 +53,7 @@ class PurchaseController {
   async recordPayment(_: Electron.IpcMainInvokeEvent, req: IRequest) {
     return purchaseService.recordPayment(
       req.body?.companyId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as any
     )
   }
@@ -65,7 +65,7 @@ class PurchaseController {
       method?: string
       paymentDate?: string
     }
-    return purchaseService.updatePayment(req.body?.companyId as string, auditFromRequest(req), {
+    return purchaseService.updatePayment(req.body?.companyId as string, auditFromMutatingRequest(req), {
       ...payload,
       paymentId: (req.params?.id as string) || payload.paymentId || ''
     })

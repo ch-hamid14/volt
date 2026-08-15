@@ -13,8 +13,8 @@ const { RangePicker } = DatePicker
 
 export const PartPurchaseList = () => {
   const navigate = useNavigate()
-  const { companyId, branchId, user } = useSession()
-  const canEditPurchases = user?.role === Roles.COMPANY_OWNER
+  const { companyId, branchId, user, canMutate } = useSession()
+  const canEditPurchases = user?.role === Roles.COMPANY_OWNER && canMutate
   const [data, setData] = useState<any[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)

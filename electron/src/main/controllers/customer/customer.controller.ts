@@ -1,6 +1,6 @@
 import { IRequest } from '../../../common'
 import { customerService } from '../../services'
-import { auditFromRequest } from '../shared/audit'
+import { auditFromMutatingRequest } from '../shared/audit'
 
 class CustomerController {
   async list(_: Electron.IpcMainInvokeEvent, req: IRequest) {
@@ -16,7 +16,7 @@ class CustomerController {
   async create(_: Electron.IpcMainInvokeEvent, req: IRequest) {
     return customerService.create(
       req.body?.companyId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.data as {
         name: string
         phone?: string
@@ -31,7 +31,7 @@ class CustomerController {
     return customerService.update(
       req.params?.id as string,
       req.body?.companyId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.data as { name?: string; phone?: string; cnic?: string; address?: string }
     )
   }
@@ -40,7 +40,7 @@ class CustomerController {
     await customerService.remove(
       req.params?.id as string,
       req.body?.companyId as string,
-      auditFromRequest(req)
+      auditFromMutatingRequest(req)
     )
     return { success: true }
   }

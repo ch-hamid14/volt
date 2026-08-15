@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Form, Input, InputNumber, Modal, message } from 'antd'
+import { VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { customerAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 
@@ -32,7 +33,7 @@ function asCustomer(row: any): CustomerRecord {
 
 /** Shared add/edit customer modal (Customers page + sale quick actions). */
 export function CustomerFormModal({ open, editing, onCancel, onSaved }: Props) {
-  const { companyId, audit } = useSession()
+  const { companyId, audit, canMutate } = useSession()
   const [form] = Form.useForm()
   const [loading, setLoading] = useState(false)
   const isEdit = Boolean(editing?.id)
@@ -60,6 +61,10 @@ export function CustomerFormModal({ open, editing, onCancel, onSaved }: Props) {
     openingBalance?: number
   }) => {
     if (!companyId) return
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     setLoading(true)
     try {
       if (isEdit && editing) {
@@ -121,7 +126,7 @@ export function CustomerFormModal({ open, editing, onCancel, onSaved }: Props) {
             <InputNumber className="w-full" min={0} style={{ width: '100%' }} />
           </Form.Item>
         ) : null}
-        <Button type="primary" htmlType="submit" block loading={loading}>
+        <Button type="primary" htmlType="submit" block loading={loading} disabled={!canMutate}>
           {isEdit ? 'Save' : 'Create'}
         </Button>
       </Form>

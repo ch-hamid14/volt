@@ -20,3 +20,6 @@ export enum Permissions {
 export function canSwitchBranch(role?: string | null): boolean {
   return role === Roles.COMPANY_OWNER || role === Roles.SUPER_ADMIN
 }
+
+export const VIEW_ONLY_BRANCH_HINT =
+  'Switch back to your assigned branch to make changes'

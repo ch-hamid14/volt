@@ -11,12 +11,13 @@ import {
   Space,
   Statistic,
   Table,
+  Tooltip,
   Typography,
   message
 } from 'antd'
 import type { TableProps } from 'antd'
 import { FileTextOutlined, PlusOutlined } from '@ant-design/icons'
-import { App_Routes } from '@/common'
+import { App_Routes, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { customerAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { CustomerFormModal } from '@/renderer/components/forms/CustomerFormModal'
@@ -26,7 +27,7 @@ const { Text } = Typography
 
 export const Customers = () => {
   const navigate = useNavigate()
-  const { companyId, audit } = useSession()
+  const { companyId, audit, canMutate } = useSession()
   const [data, setData] = useState<any[]>([])
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any | null>(null)
@@ -90,9 +91,13 @@ export const Customers = () => {
         title="Customers"
         subtitle="Customer records with opening balance for amounts already owed to you."
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-            Add Customer
-          </Button>
+          <Tooltip title={!canMutate ? VIEW_ONLY_BRANCH_HINT : undefined}>
+            <span>
+              <Button type="primary" icon={<PlusOutlined />} disabled={!canMutate} onClick={openCreate}>
+                Add Customer
+              </Button>
+            </span>
+          </Tooltip>
         }
       />
 
@@ -193,11 +198,15 @@ export const Customers = () => {
                   >
                     Report
                   </Button>
-                  <Button type="link" size="small" onClick={() => openEdit(record)}>
+                  <Button type="link" size="small" disabled={!canMutate} onClick={() => openEdit(record)}>
                     Edit
                   </Button>
-                  <Popconfirm title="Delete this customer?" onConfirm={() => handleDelete(record.id)}>
-                    <Button type="link" size="small" danger>
+                  <Popconfirm
+                    title="Delete this customer?"
+                    onConfirm={() => handleDelete(record.id)}
+                    disabled={!canMutate}
+                  >
+                    <Button type="link" size="small" danger disabled={!canMutate}>
                       Delete
                     </Button>
                   </Popconfirm>

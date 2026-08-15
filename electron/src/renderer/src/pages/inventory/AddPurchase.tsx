@@ -20,7 +20,7 @@ import {
 import { ArrowLeftOutlined, DeleteOutlined, DownOutlined, EditOutlined, PlusOutlined, UpOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useNavigate, useParams } from 'react-router-dom'
-import { App_Routes } from '@/common'
+import { App_Routes, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import {
   categoryAPI,
   colorAPI,
@@ -165,7 +165,7 @@ export const AddPurchase = () => {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [supplierQuickOpen, setSupplierQuickOpen] = useState(false)
   const [supplierQuickEditing, setSupplierQuickEditing] = useState<any | null>(null)
@@ -913,6 +913,10 @@ export const AddPurchase = () => {
   }
 
   const handleSubmit = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     if (!lines.length) {
       message.error('Add at least one line')
       scrollToElementId('purchase-line-form')
@@ -1605,7 +1609,7 @@ export const AddPurchase = () => {
                 size="small"
                 loading={loading}
                 onClick={handleSubmit}
-                disabled={!lines.length}
+                disabled={!canMutate || !lines.length}
               >
                 {isEdit ? 'Update' : 'Save purchase'}
               </Button>

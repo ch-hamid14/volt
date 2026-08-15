@@ -1,5 +1,6 @@
 import type { Knex } from 'knex'
 import { Roles } from '../../../common/constants/roles'
+import { appState } from '../../state/app-state'
 import { asJson } from './json.helpers'
 
 export type AuditContext = {
@@ -39,6 +40,14 @@ export function parseAuditFromQuery(query?: Record<string, unknown>): AuditConte
     role: (query?.role as string) || Roles.STAFF,
     branchId: (query?.branchId as string | null) ?? null
   }
+}
+
+export function assertAssignedBranchWrite(ctx: AuditContext): AuditContext {
+  const assigned = appState.getBranchId()
+  if (assigned && ctx.branchId && ctx.branchId !== assigned) {
+    throw new Error('Switch back to your assigned branch to make changes')
+  }
+  return ctx
 }
 
 /** Fields to merge on INSERT (all auditable tables) */

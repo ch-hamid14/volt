@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Input, Select, Table, Typography, message } from 'antd'
+import { VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { inventoryAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { PageHeader } from '../shared/page-ui'
@@ -8,7 +9,7 @@ import { ADJUST_STATUS_OPTIONS, STATUS_COLORS } from './inventory-ui'
 const { Text } = Typography
 
 export const Adjustment = () => {
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [items, setItems] = useState<any[]>([])
   const [selected, setSelected] = useState<string[]>([])
   const [status, setStatus] = useState<string>('returned')
@@ -26,6 +27,10 @@ export const Adjustment = () => {
   }, [companyId, branchId])
 
   const handleAdjust = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     if (!selected.length) {
       message.error('Select at least one unit')
       return
@@ -68,7 +73,7 @@ export const Adjustment = () => {
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
-            <Button type="primary" loading={loading} disabled={!selected.length} onClick={handleAdjust}>
+            <Button type="primary" loading={loading} disabled={!canMutate || !selected.length} onClick={handleAdjust}>
               Apply {selected.length ? `(${selected.length})` : ''}
             </Button>
           </div>

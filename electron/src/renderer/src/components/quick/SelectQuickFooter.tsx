@@ -9,6 +9,7 @@ type Props = {
   editLabel?: string
   onEdit?: () => void
   canEdit?: boolean
+  canAdd?: boolean
 }
 
 /** Ant Design Select popup footer with Add / optional Edit. */
@@ -18,23 +19,26 @@ export function SelectQuickFooter({
   onAdd,
   editLabel = 'Edit',
   onEdit,
-  canEdit = false
+  canEdit = false,
+  canAdd = true
 }: Props) {
   return (
     <>
       {menu}
       <Divider style={{ margin: '8px 0' }} />
       <Space style={{ padding: '0 8px 8px', width: '100%' }} wrap>
-        <Button
-          type="link"
-          size="small"
-          icon={<PlusOutlined />}
-          style={{ paddingInline: 0 }}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onAdd}
-        >
-          {addLabel}
-        </Button>
+        {canAdd ? (
+          <Button
+            type="link"
+            size="small"
+            icon={<PlusOutlined />}
+            style={{ paddingInline: 0 }}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={onAdd}
+          >
+            {addLabel}
+          </Button>
+        ) : null}
         {canEdit && onEdit ? (
           <Button
             type="link"

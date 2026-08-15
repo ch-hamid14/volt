@@ -13,11 +13,13 @@ import {
   Select,
   Statistic,
   Table,
+  Tooltip,
   Typography,
   message
 } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
+import { VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { expenseAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatRs, formatAuditUser, PageHeader } from '../shared/page-ui'
@@ -26,7 +28,7 @@ const { Text } = Typography
 const { RangePicker } = DatePicker
 
 export const Expenses = () => {
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [data, setData] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -71,6 +73,10 @@ export const Expenses = () => {
   }
 
   const handleExpenseSubmit = async (values: any) => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     setLoading(true)
     try {
       await expenseAPI.create(companyId, branchId, audit(), {
@@ -106,9 +112,13 @@ export const Expenses = () => {
         title="Expense Management"
         subtitle="Record and review branch expenses."
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openExpense}>
-            Add Expense
-          </Button>
+          <Tooltip title={!canMutate ? VIEW_ONLY_BRANCH_HINT : undefined}>
+            <span>
+              <Button type="primary" icon={<PlusOutlined />} disabled={!canMutate} onClick={openExpense}>
+                Add Expense
+              </Button>
+            </span>
+          </Tooltip>
         }
       />
 
@@ -167,8 +177,12 @@ export const Expenses = () => {
               title: '',
               width: 80,
               render: (_, r) => (
-                <Popconfirm title="Delete this expense?" onConfirm={() => handleDeleteExpense(r.id)}>
-                  <Button type="link" size="small" danger>Delete</Button>
+                <Popconfirm
+                  title="Delete this expense?"
+                  onConfirm={() => handleDeleteExpense(r.id)}
+                  disabled={!canMutate}
+                >
+                  <Button type="link" size="small" danger disabled={!canMutate}>Delete</Button>
                 </Popconfirm>
               )
             }

@@ -16,7 +16,7 @@ import {
 import { ArrowLeftOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useNavigate, useParams } from 'react-router-dom'
-import { App_Routes } from '@/common'
+import { App_Routes, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { partAPI, partPurchaseAPI, supplierAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import {
@@ -68,7 +68,7 @@ export const AddPartPurchase = () => {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [supplierQuickOpen, setSupplierQuickOpen] = useState(false)
   const [supplierQuickEditing, setSupplierQuickEditing] = useState<any | null>(null)
@@ -293,6 +293,10 @@ export const AddPartPurchase = () => {
   const netTotal = round2(lines.reduce((sum, l) => sum + l.quantity * l.unitCost, 0))
 
   const handleSubmit = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     try {
       const header = await headerForm.validateFields()
       if (!lines.length) {
@@ -551,7 +555,7 @@ export const AddPartPurchase = () => {
         />
       </Card>
 
-      <Button type="primary" size="large" loading={loading} onClick={handleSubmit}>
+      <Button type="primary" size="large" loading={loading} disabled={!canMutate} onClick={handleSubmit}>
         {isEdit ? 'Save changes' : 'Create purchase'}
       </Button>
 

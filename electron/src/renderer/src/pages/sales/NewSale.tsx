@@ -27,7 +27,7 @@ import {
   UpOutlined
 } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { App_Routes } from '@/common'
+import { App_Routes, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { customerAPI, inventoryAPI, partStockAPI, saleAPI, taxAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatRs } from '../shared/page-ui'
@@ -139,7 +139,7 @@ export const NewSale = () => {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const navigate = useNavigate()
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [customers, setCustomers] = useState<any[]>([])
   const [taxDefs, setTaxDefs] = useState<any[]>([])
   const [customerQuickOpen, setCustomerQuickOpen] = useState(false)
@@ -856,6 +856,10 @@ export const NewSale = () => {
   }
 
   const handleSubmit = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     if (!lines.length) {
       message.error('Add at least one line')
       scrollToElementId('sale-line-form')
@@ -1023,8 +1027,9 @@ export const NewSale = () => {
                     menu={menu}
                     addLabel="Add customer"
                     onAdd={openAddCustomer}
+                    canAdd={canMutate}
                     editLabel="Edit customer"
-                    canEdit={Boolean(selectedCustomerId)}
+                    canEdit={canMutate && Boolean(selectedCustomerId)}
                     onEdit={openEditCustomer}
                   />
                 )}
@@ -1564,7 +1569,7 @@ export const NewSale = () => {
                 size="small"
                 loading={loading}
                 onClick={handleSubmit}
-                disabled={!lines.length}
+                disabled={!canMutate || !lines.length}
               >
                 {isEdit ? 'Update' : 'Save sale'}
               </Button>

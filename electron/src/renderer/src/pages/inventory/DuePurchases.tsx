@@ -9,10 +9,12 @@ import {
   Select,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message
 } from 'antd'
 import dayjs from 'dayjs'
+import { VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { partPurchaseAPI, purchaseAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatRs, PageHeader } from '../shared/page-ui'
@@ -30,7 +32,7 @@ type DueRow = {
 }
 
 export const DuePurchases = () => {
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [data, setData] = useState<DueRow[]>([])
   const [loading, setLoading] = useState(false)
   const [payModal, setPayModal] = useState<DueRow | null>(null)
@@ -68,6 +70,10 @@ export const DuePurchases = () => {
   }
 
   const handlePayment = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     if (!payModal) return
     const values = await form.validateFields()
     if (Number(values.amount) > Number(payModal.dueAmount)) {
@@ -142,9 +148,13 @@ export const DuePurchases = () => {
             {
               title: '',
               render: (_, r) => (
-                <Button type="primary" size="small" onClick={() => openPayment(r)}>
-                  Record Payment
-                </Button>
+                <Tooltip title={!canMutate ? VIEW_ONLY_BRANCH_HINT : undefined}>
+                  <span>
+                    <Button type="primary" size="small" disabled={!canMutate} onClick={() => openPayment(r)}>
+                      Record Payment
+                    </Button>
+                  </span>
+                </Tooltip>
               )
             }
           ]}

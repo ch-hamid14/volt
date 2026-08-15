@@ -4,7 +4,7 @@ import type { TableProps } from 'antd'
 import { EditOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
 import { useNavigate } from 'react-router-dom'
-import { App_Routes, Roles } from '@/common'
+import { App_Routes, Roles, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { partPurchaseAPI, purchaseAPI, supplierAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatRs, formatAuditUser, PageHeader } from '../shared/page-ui'
@@ -29,8 +29,8 @@ type UnifiedRow = {
 
 export const PurchaseList = () => {
   const navigate = useNavigate()
-  const { companyId, branchId, user } = useSession()
-  const canEditPurchases = user?.role === Roles.COMPANY_OWNER
+  const { companyId, branchId, user, canMutate } = useSession()
+  const canEditPurchases = user?.role === Roles.COMPANY_OWNER && canMutate
   const [data, setData] = useState<UnifiedRow[]>([])
   const [suppliers, setSuppliers] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
@@ -131,9 +131,18 @@ export const PurchaseList = () => {
         title="Purchase List"
         subtitle="Product and parts purchases at this branch."
         extra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate(App_Routes.ADD_PURCHASE)}>
-            Add Purchase
-          </Button>
+          <Tooltip title={!canMutate ? VIEW_ONLY_BRANCH_HINT : undefined}>
+            <span>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                disabled={!canMutate}
+                onClick={() => navigate(App_Routes.ADD_PURCHASE)}
+              >
+                Add Purchase
+              </Button>
+            </span>
+          </Tooltip>
         }
       />
 
@@ -260,7 +269,9 @@ export const PurchaseList = () => {
                     ) : (
                       <Tooltip
                         title={
-                          !canEditPurchases
+                          !canMutate
+                            ? VIEW_ONLY_BRANCH_HINT
+                            : !canEditPurchases
                             ? 'Only company owners can edit purchases'
                             : 'Edit unavailable'
                         }

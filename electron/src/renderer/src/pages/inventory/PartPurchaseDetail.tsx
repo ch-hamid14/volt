@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Button, Card, Col, Descriptions, Row, Spin, Statistic, Table, Tag, Typography, message } from 'antd'
 import { ArrowLeftOutlined, EditOutlined } from '@ant-design/icons'
 import dayjs from 'dayjs'
-import { App_Routes, Roles } from '@/common'
+import { App_Routes, Roles, VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { partPurchaseAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { EditPaymentModal } from '@/renderer/components/forms/EditPaymentModal'
@@ -14,9 +14,9 @@ const { Text } = Typography
 export const PartPurchaseDetail = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { companyId, user, audit } = useSession()
-  const canEditPurchases = user?.role === Roles.COMPANY_OWNER
-  const canEditPayments = user?.role === Roles.COMPANY_OWNER
+  const { companyId, user, audit, canMutate } = useSession()
+  const canEditPurchases = user?.role === Roles.COMPANY_OWNER && canMutate
+  const canEditPayments = user?.role === Roles.COMPANY_OWNER && canMutate
   const [loading, setLoading] = useState(true)
   const [detail, setDetail] = useState<any>(null)
   const [editPayment, setEditPayment] = useState<any>(null)
@@ -102,7 +102,9 @@ export const PartPurchaseDetail = () => {
               Edit
             </Button>
           ) : (
-            <Text type="secondary">Only company owners can edit purchases</Text>
+            <Text type="secondary">
+              {!canMutate ? VIEW_ONLY_BRANCH_HINT : 'Only company owners can edit purchases'}
+            </Text>
           )
         }
       />

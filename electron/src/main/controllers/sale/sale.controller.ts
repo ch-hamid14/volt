@@ -1,7 +1,7 @@
 import { IRequest } from '../../../common'
 import { saleService } from '../../services'
 import type { CreateSalePayload, RecordPaymentPayload, UpdatePaymentPayload, UpdateSalePayload } from '../../services/sale/sale.service'
-import { auditFromListQuery, auditFromRequest } from '../shared/audit'
+import { auditFromListQuery, auditFromMutatingRequest } from '../shared/audit'
 
 class SaleController {
   async list(_: Electron.IpcMainInvokeEvent, req: IRequest) {
@@ -25,7 +25,7 @@ class SaleController {
     return saleService.create(
       req.body?.companyId as string,
       req.body?.branchId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as CreateSalePayload
     )
   }
@@ -45,14 +45,14 @@ class SaleController {
   async recordPayment(_: Electron.IpcMainInvokeEvent, req: IRequest) {
     return saleService.recordPayment(
       req.body?.companyId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as RecordPaymentPayload
     )
   }
 
   async updatePayment(_: Electron.IpcMainInvokeEvent, req: IRequest) {
     const payload = (req.body?.payload || {}) as UpdatePaymentPayload
-    return saleService.updatePayment(req.body?.companyId as string, auditFromRequest(req), {
+    return saleService.updatePayment(req.body?.companyId as string, auditFromMutatingRequest(req), {
       ...payload,
       paymentId: (req.params?.id as string) || payload.paymentId
     })
@@ -63,7 +63,7 @@ class SaleController {
       req.params?.id as string,
       req.body?.companyId as string,
       req.body?.branchId as string,
-      auditFromRequest(req),
+      auditFromMutatingRequest(req),
       req.body?.payload as UpdateSalePayload
     )
   }

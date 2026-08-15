@@ -8,10 +8,12 @@ import {
   Modal,
   Select,
   Table,
+  Tooltip,
   Typography,
   message
 } from 'antd'
 import dayjs from 'dayjs'
+import { VIEW_ONLY_BRANCH_HINT } from '@/common'
 import { saleAPI } from '@/renderer/services'
 import { useSession } from '@/renderer/hooks/useSession'
 import { formatRs, PageHeader } from '../shared/page-ui'
@@ -19,7 +21,7 @@ import { formatRs, PageHeader } from '../shared/page-ui'
 const { Text } = Typography
 
 export const DueSales = () => {
-  const { companyId, branchId, audit } = useSession()
+  const { companyId, branchId, audit, canMutate } = useSession()
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [payModal, setPayModal] = useState<any>(null)
@@ -45,6 +47,10 @@ export const DueSales = () => {
   }
 
   const handlePayment = async () => {
+    if (!canMutate) {
+      message.error(VIEW_ONLY_BRANCH_HINT)
+      return
+    }
     const values = await form.validateFields()
     if (Number(values.amount) > Number(payModal.dueAmount)) {
       message.error('Amount cannot exceed due balance')
@@ -102,9 +108,13 @@ export const DueSales = () => {
             {
               title: '',
               render: (_, r) => (
-                <Button type="primary" size="small" onClick={() => openPayment(r)}>
-                  Record Payment
-                </Button>
+                <Tooltip title={!canMutate ? VIEW_ONLY_BRANCH_HINT : undefined}>
+                  <span>
+                    <Button type="primary" size="small" disabled={!canMutate} onClick={() => openPayment(r)}>
+                      Record Payment
+                    </Button>
+                  </span>
+                </Tooltip>
               )
             }
           ]}
