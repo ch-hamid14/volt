@@ -206,16 +206,17 @@ export async function restorePartSaleAllocations(
 export async function computePartFifoInventoryValue(
   trx: Knex.Transaction | Knex,
   companyId: string,
-  branchId: string,
+  branchId?: string,
   partId?: string
 ): Promise<number> {
   let q = trx('part_purchase_lines as pl')
     .join('part_purchases as pp', 'pp.id', 'pl.part_purchase_id')
-    .where({ 'pl.company_id': companyId, 'pp.branch_id': branchId })
+    .where({ 'pl.company_id': companyId })
     .where('pl.quantity_remaining', '>', 0)
     .whereNull('pl.deleted_at')
     .whereNull('pp.deleted_at')
 
+  if (branchId) q = q.where({ 'pp.branch_id': branchId })
   if (partId) q = q.where({ 'pl.part_id': partId })
 
   const rows = await q.select('pl.quantity_remaining', 'pl.unit_cost')

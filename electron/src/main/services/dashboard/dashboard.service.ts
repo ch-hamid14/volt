@@ -83,21 +83,27 @@ function includePartScope(filters?: DashboardFilters): boolean {
   return !filters?.productId || !!filters?.partId
 }
 
+function applyBranch(q: Knex.QueryBuilder, column: string, branchId?: string) {
+  if (branchId) q.where(column, branchId)
+  return q
+}
+
 const PART_COGS_SQL = 'COALESCE(sl.unit_cost, 0) * sl.quantity'
 
 function baseSaleLinesQuery(
   db: Knex,
   companyId: string,
-  branchId: string,
+  branchId: string | undefined,
   fromDate: Date,
   toDate: Date
 ): Knex.QueryBuilder {
-  return db('sale_lines as sl')
+  const q = db('sale_lines as sl')
     .join('sales as s', 's.id', 'sl.sale_id')
-    .where({ 's.company_id': companyId, 's.branch_id': branchId })
+    .where({ 's.company_id': companyId })
     .where('s.sale_date', '>=', fromDate)
     .where('s.sale_date', '<=', toDate)
     .whereNull('s.deleted_at')
+  return applyBranch(q, 's.branch_id', branchId)
 }
 
 function applySaleLineItemFilters(q: Knex.QueryBuilder, filters?: DashboardFilters): Knex.QueryBuilder {
@@ -239,7 +245,7 @@ function mergeDailyTotals(target: Map<string, number>, rows: Array<Record<string
 }
 
 class DashboardService {
-  async getAnalytics(companyId: string, branchId: string, filters?: DashboardFilters): Promise<unknown> {
+  async getAnalytics(companyId: string, branchId?: string, filters?: DashboardFilters): Promise<unknown> {
     const db = getDb()
     const { from: fromDate, to: toDate } = parseDateRange(filters?.from, filters?.to)
 
@@ -328,11 +334,15 @@ class DashboardService {
       cogs = aggregated.cogs
       unitsSold = aggregated.unitsSold
     } else {
-      const salesRows = await db('sales')
-        .where({ company_id: companyId, branch_id: branchId })
-        .where('sale_date', '>=', fromDate)
-        .where('sale_date', '<=', toDate)
-        .whereNull('deleted_at')
+      const salesRows = await applyBranch(
+        db('sales')
+          .where({ company_id: companyId })
+          .where('sale_date', '>=', fromDate)
+          .where('sale_date', '<=', toDate)
+          .whereNull('deleted_at'),
+        'branch_id',
+        branchId
+      )
 
       salesRevenue = round2(salesRows.reduce((sum, row) => sum + Number(row.net_total), 0))
       collectedAmount = round2(salesRows.reduce((sum, row) => sum + Number(row.paid_amount), 0))
@@ -364,13 +374,17 @@ class DashboardService {
     }
     const grossProfit = round2(salesRevenue - cogs)
 
-    const expenseRows = await db('expenses as e')
-      .leftJoin('expense_categories as ec', 'ec.id', 'e.category_id')
-      .where({ 'e.company_id': companyId, 'e.branch_id': branchId })
-      .where('e.date', '>=', fromDate)
-      .where('e.date', '<=', toDate)
-      .whereNull('e.deleted_at')
-      .select('e.amount', 'ec.name as category_name')
+    const expenseRows = await applyBranch(
+      db('expenses as e')
+        .leftJoin('expense_categories as ec', 'ec.id', 'e.category_id')
+        .where({ 'e.company_id': companyId })
+        .where('e.date', '>=', fromDate)
+        .where('e.date', '<=', toDate)
+        .whereNull('e.deleted_at')
+        .select('e.amount', 'ec.name as category_name'),
+      'e.branch_id',
+      branchId
+    )
 
     const expenses = round2(expenseRows.reduce((sum, row) => sum + Number(row.amount), 0))
     const netProfit = round2(grossProfit - expenses)
@@ -381,12 +395,16 @@ class DashboardService {
 
     if (withProducts) {
       const purchaseItems = await applyProductItemFilters(
-        db('product_items as pi')
-          .where({ 'pi.company_id': companyId, 'pi.branch_id': branchId })
-          .where('pi.purchased_at', '>=', fromDate)
-          .where('pi.purchased_at', '<=', toDate)
-          .whereNull('pi.deleted_at')
-          .select('pi.purchase_price'),
+        applyBranch(
+          db('product_items as pi')
+            .where({ 'pi.company_id': companyId })
+            .where('pi.purchased_at', '>=', fromDate)
+            .where('pi.purchased_at', '<=', toDate)
+            .whereNull('pi.deleted_at')
+            .select('pi.purchase_price'),
+          'pi.branch_id',
+          branchId
+        ),
         filters
       )
 
@@ -395,11 +413,15 @@ class DashboardService {
       )
       productPurchaseUnits = purchaseItems.length
 
-      let purchaseRecordsQ = db('purchases as p')
-        .where({ 'p.company_id': companyId, 'p.branch_id': branchId })
-        .where('p.purchase_date', '>=', fromDate)
-        .where('p.purchase_date', '<=', toDate)
-        .whereNull('p.deleted_at')
+      let purchaseRecordsQ = applyBranch(
+        db('purchases as p')
+          .where({ 'p.company_id': companyId })
+          .where('p.purchase_date', '>=', fromDate)
+          .where('p.purchase_date', '<=', toDate)
+          .whereNull('p.deleted_at'),
+        'p.branch_id',
+        branchId
+      )
 
       if (filters?.supplierId) purchaseRecordsQ = purchaseRecordsQ.where({ 'p.supplier_id': filters.supplierId })
       if (filters?.productId) {
@@ -420,14 +442,18 @@ class DashboardService {
 
     if (withParts) {
       const partPurchaseLines = await applyPartPurchaseLineFilters(
-        db('part_purchase_lines as pl')
-          .join('part_purchases as pp', 'pp.id', 'pl.part_purchase_id')
-          .where({ 'pl.company_id': companyId, 'pp.branch_id': branchId })
-          .where('pp.purchase_date', '>=', fromDate)
-          .where('pp.purchase_date', '<=', toDate)
-          .whereNull('pl.deleted_at')
-          .whereNull('pp.deleted_at')
-          .select('pl.quantity', 'pl.unit_cost'),
+        applyBranch(
+          db('part_purchase_lines as pl')
+            .join('part_purchases as pp', 'pp.id', 'pl.part_purchase_id')
+            .where({ 'pl.company_id': companyId })
+            .where('pp.purchase_date', '>=', fromDate)
+            .where('pp.purchase_date', '<=', toDate)
+            .whereNull('pl.deleted_at')
+            .whereNull('pp.deleted_at')
+            .select('pl.quantity', 'pl.unit_cost'),
+          'pp.branch_id',
+          branchId
+        ),
         filters
       )
 
@@ -439,11 +465,15 @@ class DashboardService {
       )
       partPurchaseUnits = partPurchaseLines.reduce((sum, line) => sum + Number(line.quantity), 0)
 
-      let partPurchaseRecordsQ = db('part_purchases as pp')
-        .where({ 'pp.company_id': companyId, 'pp.branch_id': branchId })
-        .where('pp.purchase_date', '>=', fromDate)
-        .where('pp.purchase_date', '<=', toDate)
-        .whereNull('pp.deleted_at')
+      let partPurchaseRecordsQ = applyBranch(
+        db('part_purchases as pp')
+          .where({ 'pp.company_id': companyId })
+          .where('pp.purchase_date', '>=', fromDate)
+          .where('pp.purchase_date', '<=', toDate)
+          .whereNull('pp.deleted_at'),
+        'pp.branch_id',
+        branchId
+      )
 
       if (filters?.supplierId) partPurchaseRecordsQ = partPurchaseRecordsQ.where({ 'pp.supplier_id': filters.supplierId })
       if (filters?.partId) {
@@ -467,14 +497,17 @@ class DashboardService {
 
     if (withProducts) {
       const inStock = await applyProductItemFilters(
-        db('product_items as pi')
-          .where({
-            'pi.company_id': companyId,
-            'pi.current_branch_id': branchId,
-            'pi.status': ProductItemStatus.IN_STOCK
-          })
-          .whereNull('pi.deleted_at')
-          .select('pi.purchase_price'),
+        applyBranch(
+          db('product_items as pi')
+            .where({
+              'pi.company_id': companyId,
+              'pi.status': ProductItemStatus.IN_STOCK
+            })
+            .whereNull('pi.deleted_at')
+            .select('pi.purchase_price'),
+          'pi.current_branch_id',
+          branchId
+        ),
         filters
       )
 
@@ -486,9 +519,13 @@ class DashboardService {
     let partInventoryValue = 0
 
     if (withParts) {
-      let partStockQ = db('part_stocks as ps')
-        .where({ 'ps.company_id': companyId, 'ps.branch_id': branchId })
-        .where('ps.quantity_on_hand', '>', 0)
+      let partStockQ = applyBranch(
+        db('part_stocks as ps')
+          .where({ 'ps.company_id': companyId })
+          .where('ps.quantity_on_hand', '>', 0),
+        'ps.branch_id',
+        branchId
+      )
 
       if (filters?.partId) partStockQ = partStockQ.where({ 'ps.part_id': filters.partId })
 
@@ -505,16 +542,16 @@ class DashboardService {
 
     const inventoryValue = round2(productInventoryValue + partInventoryValue)
 
-    const customers = await db('customers').where({ company_id: companyId }).whereNull('deleted_at')
-    let outstandingBalance = 0
-    for (const c of customers) {
-      const last = await db('ledger_entries')
-        .where({ customer_id: c.id })
-        .orderBy('created_at', 'desc')
-        .first()
-      if (last) outstandingBalance += Number(last.running_balance)
-    }
-    outstandingBalance = round2(outstandingBalance)
+    const outstandingRow = await applyBranch(
+      db('sales')
+        .where({ company_id: companyId })
+        .whereNull('deleted_at')
+        .where('due_amount', '>', 0)
+        .sum({ total: 'due_amount' }),
+      'branch_id',
+      branchId
+    ).first()
+    const outstandingBalance = round2(Number(outstandingRow?.total || 0))
 
     const salesByDay = new Map<string, number>()
     const purchasesByDay = new Map<string, number>()
@@ -535,28 +572,36 @@ class DashboardService {
         )
       }
     } else {
-      const dailySales = await db('sales')
-        .where({ company_id: companyId, branch_id: branchId })
-        .where('sale_date', '>=', fromDate)
-        .where('sale_date', '<=', toDate)
-        .whereNull('deleted_at')
-        .select(db.raw('DATE(sale_date) as day'))
-        .sum('net_total as total')
-        .groupByRaw('DATE(sale_date)')
+      const dailySales = await applyBranch(
+        db('sales')
+          .where({ company_id: companyId })
+          .where('sale_date', '>=', fromDate)
+          .where('sale_date', '<=', toDate)
+          .whereNull('deleted_at')
+          .select(db.raw('DATE(sale_date) as day'))
+          .sum('net_total as total')
+          .groupByRaw('DATE(sale_date)'),
+        'branch_id',
+        branchId
+      )
 
       mergeDailyTotals(salesByDay, dailySales)
     }
 
     if (withProducts) {
       const dailyProductPurchases = await applyProductItemFilters(
-        db('product_items as pi')
-          .where({ 'pi.company_id': companyId, 'pi.branch_id': branchId })
-          .where('pi.purchased_at', '>=', fromDate)
-          .where('pi.purchased_at', '<=', toDate)
-          .whereNull('pi.deleted_at')
-          .select(db.raw('DATE(pi.purchased_at) as day'))
-          .sum('pi.purchase_price as total')
-          .groupByRaw('DATE(pi.purchased_at)'),
+        applyBranch(
+          db('product_items as pi')
+            .where({ 'pi.company_id': companyId })
+            .where('pi.purchased_at', '>=', fromDate)
+            .where('pi.purchased_at', '<=', toDate)
+            .whereNull('pi.deleted_at')
+            .select(db.raw('DATE(pi.purchased_at) as day'))
+            .sum('pi.purchase_price as total')
+            .groupByRaw('DATE(pi.purchased_at)'),
+          'pi.branch_id',
+          branchId
+        ),
         filters
       )
       mergeDailyTotals(purchasesByDay, dailyProductPurchases)
@@ -564,29 +609,37 @@ class DashboardService {
 
     if (withParts) {
       const dailyPartPurchases = await applyPartPurchaseLineFilters(
-        db('part_purchase_lines as pl')
-          .join('part_purchases as pp', 'pp.id', 'pl.part_purchase_id')
-          .where({ 'pl.company_id': companyId, 'pp.branch_id': branchId })
-          .where('pp.purchase_date', '>=', fromDate)
-          .where('pp.purchase_date', '<=', toDate)
-          .whereNull('pl.deleted_at')
-          .whereNull('pp.deleted_at')
-          .select(db.raw('DATE(pp.purchase_date) as day'))
-          .sum({ total: db.raw('pl.quantity * pl.unit_cost') })
-          .groupByRaw('DATE(pp.purchase_date)'),
+        applyBranch(
+          db('part_purchase_lines as pl')
+            .join('part_purchases as pp', 'pp.id', 'pl.part_purchase_id')
+            .where({ 'pl.company_id': companyId })
+            .where('pp.purchase_date', '>=', fromDate)
+            .where('pp.purchase_date', '<=', toDate)
+            .whereNull('pl.deleted_at')
+            .whereNull('pp.deleted_at')
+            .select(db.raw('DATE(pp.purchase_date) as day'))
+            .sum({ total: db.raw('pl.quantity * pl.unit_cost') })
+            .groupByRaw('DATE(pp.purchase_date)'),
+          'pp.branch_id',
+          branchId
+        ),
         filters
       )
       mergeDailyTotals(purchasesByDay, dailyPartPurchases)
     }
 
-    const dailyExpenses = await db('expenses')
-      .where({ company_id: companyId, branch_id: branchId })
-      .where('date', '>=', fromDate)
-      .where('date', '<=', toDate)
-      .whereNull('deleted_at')
-      .select(db.raw('DATE(date) as day'))
-      .sum('amount as total')
-      .groupByRaw('DATE(date)')
+    const dailyExpenses = await applyBranch(
+      db('expenses')
+        .where({ company_id: companyId })
+        .where('date', '>=', fromDate)
+        .where('date', '<=', toDate)
+        .whereNull('deleted_at')
+        .select(db.raw('DATE(date) as day'))
+        .sum('amount as total')
+        .groupByRaw('DATE(date)'),
+      'branch_id',
+      branchId
+    )
 
     const expensesByDay = new Map<string, number>()
     for (const row of dailyExpenses) {
@@ -698,7 +751,7 @@ class DashboardService {
   }
 
   /** @deprecated Use getAnalytics — kept for compatibility */
-  async getMetrics(companyId: string, branchId: string): Promise<unknown> {
+  async getMetrics(companyId: string, branchId?: string): Promise<unknown> {
     const data = (await this.getAnalytics(companyId, branchId, {})) as Record<string, unknown>
     const kpis = data.kpis as Record<string, number>
     const profitLoss = data.profitLoss as Record<string, number>
