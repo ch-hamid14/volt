@@ -16,3 +16,7 @@ export enum Permissions {
   ADMINISTRATION = 'administration',
   SYSTEM = 'system'
 }
+
+export function canSwitchBranch(role?: string | null): boolean {
+  return role === Roles.COMPANY_OWNER || role === Roles.SUPER_ADMIN
+}

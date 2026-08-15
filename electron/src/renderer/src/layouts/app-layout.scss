@@ -225,6 +225,28 @@ $header-height: 60px;
   font-size: 12px;
 }
 
+.app-branch-select {
+  min-width: 160px;
+  max-width: 220px;
+
+  .ant-select-selector {
+    background: #eff6ff !important;
+    border: none !important;
+    border-radius: 6px !important;
+    color: #1d4ed8 !important;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .ant-select-selection-item {
+    color: #1d4ed8 !important;
+  }
+
+  .ant-select-arrow {
+    color: #1d4ed8 !important;
+  }
+}
+
 .app-user-menu {
   display: flex;
   align-items: center;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Alert, Avatar, Button, Dropdown, Layout, Menu, MenuProps, Tag, Typography, theme } from 'antd'
+import { Alert, Avatar, Button, Dropdown, Layout, Menu, MenuProps, Typography, theme } from 'antd'
 import { App_Routes, Menus } from '@/common'
 import { AiOutlineLogout } from 'react-icons/ai'
 import { GoChevronDown } from 'react-icons/go'
@@ -8,6 +8,7 @@ import { RiMenuFoldLine, RiMenuUnfoldLine } from 'react-icons/ri'
 import './app-layout.scss'
 import { useSession } from '@/renderer/hooks/useSession'
 import { useConnectivityGuard } from '@/renderer/hooks/useConnectivityGuard'
+import { BranchSwitcher } from '@/renderer/components/BranchSwitcher'
 import logoFull from '@/renderer/assets/logo-full-light.png'
 import logoMark from '@/renderer/assets/logo-mark.png'
 
@@ -184,9 +185,7 @@ const AppLayout = () => {
                 />
               </div>
             )}
-            {branchName && (
-              <Tag bordered={false} className="app-branch-tag">{branchName}</Tag>
-            )}
+            <BranchSwitcher />
             <Dropdown menu={{ items: dropdownItems, onClick: (i) => navigate(i.key) }}>
               <button type="button" className="app-user-menu">
                 <Avatar size={36} className="app-user-avatar">{user.firstName[0]}</Avatar>
