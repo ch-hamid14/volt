@@ -166,6 +166,21 @@ export async function cacheBootstrapData(data: any): Promise<void> {
       updated_at: toDate(ur.updated_at)
     })
   }
+
+  for (const tax of data.taxes || []) {
+    if (!tax.company_id) continue
+    await upsertRow('taxes', tax.id, {
+      company_id: tax.company_id,
+      name: tax.name,
+      code: tax.code ?? null,
+      default_percent: Number(tax.default_percent ?? 0),
+      inclusive_default: Boolean(tax.inclusive_default),
+      is_system: Boolean(tax.is_system),
+      sort_order: Number(tax.sort_order ?? 100),
+      created_at: toDate(tax.created_at),
+      updated_at: toDate(tax.updated_at)
+    })
+  }
 }
 
 /** Upsert the signed-in user profile only when local fields differ. */

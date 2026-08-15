@@ -17,39 +17,9 @@ export type TaxInput = {
   inclusiveDefault?: boolean
 }
 
-async function ensureSystemTaxes(companyId: string): Promise<void> {
-  const existing = await getDb()('taxes')
-    .where({ company_id: companyId })
-    .whereIn('code', [TAX_CODE_SALE, TAX_CODE_236])
-    .whereNull('deleted_at')
-  const codes = new Set(existing.map((r: { code: string }) => r.code))
-
-  const seeds: { code: string; name: string; sort_order: number }[] = []
-  if (!codes.has(TAX_CODE_SALE)) {
-    seeds.push({ code: TAX_CODE_SALE, name: 'Sale Tax', sort_order: 10 })
-  }
-  if (!codes.has(TAX_CODE_236)) {
-    seeds.push({ code: TAX_CODE_236, name: 'Tax u/s 236 G/H', sort_order: 20 })
-  }
-  for (const seed of seeds) {
-    await getDb()('taxes').insert({
-      id: generateId(),
-      company_id: companyId,
-      name: seed.name,
-      code: seed.code,
-      default_percent: 0,
-      inclusive_default: true,
-      is_system: true,
-      sort_order: seed.sort_order,
-      created_at: new Date(),
-      updated_at: new Date()
-    })
-  }
-}
-
 export const taxService = {
+  /** System taxes are seeded on the server and replicated via auth bootstrap / sync. */
   async list(companyId: string, search?: string): Promise<unknown[]> {
-    await ensureSystemTaxes(companyId)
     const q = getDb()('taxes')
       .where({ company_id: companyId })
       .whereNull('deleted_at')

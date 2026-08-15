@@ -138,7 +138,17 @@ export function authRouter(db: Knex): Router {
       const branchId = req.auth?.branchId ?? null
 
       if (!companyId) {
-        return res.json({ company: null, branch: null, branches: [], roles: [], permissions: [], rolePermissions: [], users: [], userRoles: [] })
+        return res.json({
+          company: null,
+          branch: null,
+          branches: [],
+          roles: [],
+          permissions: [],
+          rolePermissions: [],
+          users: [],
+          userRoles: [],
+          taxes: []
+        })
       }
 
       const data = await getBootstrapData(db, companyId, branchId)
