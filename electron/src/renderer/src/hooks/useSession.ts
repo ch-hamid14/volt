@@ -29,7 +29,7 @@ export function useSession() {
     assignedBranchName: branchName,
     canSwitchBranch: canSwitch,
     isViewingOtherBranch,
-    canMutate: !isViewingOtherBranch,
+    canMutate: canSwitch || !isViewingOtherBranch,
     audit
   }
 }

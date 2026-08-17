@@ -1,5 +1,5 @@
 import type { Knex } from 'knex'
-import { Roles } from '../../../common/constants/roles'
+import { canSwitchBranch, Roles } from '../../../common/constants/roles'
 import { appState } from '../../state/app-state'
 import { asJson } from './json.helpers'
 
@@ -43,6 +43,7 @@ export function parseAuditFromQuery(query?: Record<string, unknown>): AuditConte
 }
 
 export function assertAssignedBranchWrite(ctx: AuditContext): AuditContext {
+  if (canSwitchBranch(ctx.role)) return ctx
   const assigned = appState.getBranchId()
   if (assigned && ctx.branchId && ctx.branchId !== assigned) {
     throw new Error('Switch back to your assigned branch to make changes')

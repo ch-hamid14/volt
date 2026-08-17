@@ -53,7 +53,7 @@ const AppLayout = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const { token: themeToken } = theme.useToken()
-  const { user, branchName, isViewingOtherBranch, assignedBranchName } = useSession()
+  const { user, branchName } = useSession()
   const { reauthGrace, remainLabel, signInNow } = useConnectivityGuard()
   const [collapsed, setCollapsed] = useState(false)
   const [openKeys, setOpenKeys] = useState<string[]>([])
@@ -200,15 +200,6 @@ const AppLayout = () => {
         </Header>
 
         <Content className="app-content">
-          {isViewingOtherBranch && (
-            <Alert
-              type="info"
-              showIcon
-              banner
-              className="app-view-only-banner"
-              message={`Viewing ${branchName} (read-only). Switch back to ${assignedBranchName || 'your assigned branch'} to add sales, inventory, or customers.`}
-            />
-          )}
           <div className="app-page">
             <Outlet />
           </div>

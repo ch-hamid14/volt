@@ -315,10 +315,6 @@ $header-height: 60px;
   box-sizing: border-box;
 }
 
-.app-view-only-banner {
-  flex-shrink: 0;
-}
-
 @media (max-width: 768px) {
   .app-user-meta,
   .app-branch-tag {
